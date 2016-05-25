@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="INFO">
+    <Appenders>
+        <File name="InfoFile" fileName="src/main/resources/info.log" immediateFlush="false" append="false">
+            <PatternLayout pattern="%d{yyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </File>
+    </Appenders>
+    <Loggers>
+        <Logger name="ru.spbau.mit" level="info">
+            <AppenderRef ref="InfoFile"/>
+        </Logger>
+    </Loggers>
+</Configuration>
