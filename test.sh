@@ -28,7 +28,7 @@ cd $TMP/server
 $SERVER &
 PID0=$!
 
-sleep 2
+sleep 5
 
 echo CLIENT1
 
@@ -55,7 +55,7 @@ $CLIENT get 127.0.0.1 0
 $CLIENT run 127.0.0.1 &
 PID3=$!
 
-sleep 10 
+sleep 80
 
 FILE_SUFFIX=downloads/0/`basename $REFERENCE_FILE`
 

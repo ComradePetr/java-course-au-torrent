@@ -9,9 +9,10 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -22,17 +23,9 @@ public final class TorrentTrackerMain {
     public static final byte SERVER_REQUEST_UPDATE = 4;
     public static final short SERVER_PORT = 8081;
 
-    private static final Logger LOG = LogManager.getLogger(TorrentClientMain.class);
-    private static ArrayList<ServerFileInfo> serverFileInfos = new ArrayList<>();
-    private static HashMap<IpPort, ClientInfo> clients = new HashMap<>();
-
-    private static synchronized HashMap<IpPort, ClientInfo> getClients() {
-        return clients;
-    }
-
-    private static synchronized ArrayList<ServerFileInfo> getServerFileInfos() {
-        return serverFileInfos;
-    }
+    private static final Logger LOG = LogManager.getLogger(TorrentTrackerMain.class);
+    private static CopyOnWriteArrayList<ServerFileInfo> serverFileInfos = new CopyOnWriteArrayList<>();
+    private static ConcurrentHashMap<IpPort, ClientInfo> clients = new ConcurrentHashMap<>();
 
     private static int maxId = 0;
 
@@ -53,8 +46,8 @@ public final class TorrentTrackerMain {
                         byte type = dataInputStream.readByte();
                         switch (type) {
                             case SERVER_REQUEST_LIST:
-                                dataOutputStream.writeInt(getServerFileInfos().size());
-                                for (ServerFileInfo serverFileInfo : getServerFileInfos()) {
+                                dataOutputStream.writeInt(serverFileInfos.size());
+                                for (ServerFileInfo serverFileInfo : serverFileInfos) {
                                     dataOutputStream.writeInt(serverFileInfo.getId());
                                     dataOutputStream.writeUTF(serverFileInfo.getName());
                                     dataOutputStream.writeLong(serverFileInfo.getSize());
@@ -66,7 +59,7 @@ public final class TorrentTrackerMain {
                                     String name = dataInputStream.readUTF();
                                     long size = dataInputStream.readLong();
                                     int id = getNewId();
-                                    getServerFileInfos().add(new ServerFileInfo(id, name, size));
+                                    serverFileInfos.add(new ServerFileInfo(id, name, size));
                                     dataOutputStream.writeInt(id);
                                 } while (false);
                                 break;
@@ -74,9 +67,9 @@ public final class TorrentTrackerMain {
                             case SERVER_REQUEST_SOURCES:
                                 do {
                                     int id = dataInputStream.readInt();
-                                    ArrayList<ClientInfo> clientInfoList = new ArrayList<ClientInfo>();
+                                    ArrayList<ClientInfo> clientInfoList = new ArrayList<>();
                                     Iterator<Map.Entry<IpPort, ClientInfo>> iterator =
-                                            getClients().entrySet().iterator();
+                                            clients.entrySet().iterator();
                                     while (iterator.hasNext()) {
                                         Map.Entry<IpPort, ClientInfo> entry = iterator.next();
                                         ClientInfo clientInfo = entry.getValue();
@@ -92,8 +85,8 @@ public final class TorrentTrackerMain {
                                     for (ClientInfo clientInfo : clientInfoList) {
                                         IpPort ipPort = clientInfo.getIpPort();
                                         byte[] ip = ipPort.getIp();
-                                        for (int i = 0; i < ip.length; i++) {
-                                            dataOutputStream.writeByte(ip[i]);
+                                        for (byte anIp : ip) {
+                                            dataOutputStream.writeByte(anIp);
                                         }
                                         dataOutputStream.writeShort(ipPort.getPort());
                                     }
@@ -110,7 +103,7 @@ public final class TorrentTrackerMain {
                                         int id = dataInputStream.readInt();
                                         clientInfo.addFileId(id);
                                     }
-                                    getClients().put(ipPort, clientInfo);
+                                    clients.put(ipPort, clientInfo);
                                     dataOutputStream.writeBoolean(true);
                                     LOG.info("Server: I got {}'s update!", port);
                                 } while (false);
