@@ -43,6 +43,7 @@ public final class TorrentTrackerMain {
     public static void main(String[] args) throws IOException {
         ExecutorService taskExecutor = Executors.newCachedThreadPool();
         try (ServerSocket serverSocket = new ServerSocket(SERVER_PORT)) {
+            LOG.info("Server is ready");
             while (true) {
                 Socket socket = serverSocket.accept();
                 LOG.info("New client's connection");
