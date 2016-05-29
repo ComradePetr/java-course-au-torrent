@@ -1,5 +1,8 @@
 package ru.spbau.mit;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -11,6 +14,8 @@ import java.util.HashSet;
 public class ClientFileInfo {
     public static final int BLOCK_SIZE = 10 * 1024 * 1024;
     public static final String DOWNLOADS_FOLDER = "downloads";
+
+    private static final Logger LOG = LogManager.getLogger(ClientFileInfo.class);
 
     private int id;
     private String name = "";
@@ -75,32 +80,38 @@ public class ClientFileInfo {
         return parts;
     }
 
-    public byte[] getPartContent(int partNumber) throws IOException {
+    public synchronized byte[] loadPart(int partNumber) throws IOException {
         if (!parts.contains(partNumber)) {
             return null;
         }
+        long start = (long) partNumber * BLOCK_SIZE,
+                end = Math.min(size, (long) (partNumber + 1) * BLOCK_SIZE);
+        int len = (int) (end - start);
+        byte[] partContent = new byte[len];
         try (RandomAccessFile randomAccessFile = new RandomAccessFile(path.toFile(), "r")) {
-            long start = (long) partNumber * BLOCK_SIZE,
-                    end = Math.min(size, (long) (partNumber + 1) * BLOCK_SIZE);
-            int len = (int) (end - start);
             randomAccessFile.seek(start);
-            byte[] partContent = new byte[len];
             randomAccessFile.read(partContent, 0, len);
-            return partContent;
         }
+        return partContent;
     }
 
-    public void writePartContent(int partNumber, byte[] partContent) throws IOException {
+    public synchronized void savePart(int partNumber, byte[] partContent) throws IOException {
+        long start = (long) partNumber * BLOCK_SIZE,
+                end = Math.min(size, (long) (partNumber + 1) * BLOCK_SIZE);
+        int len = (int) (end - start);
+        if (partContent.length != len) {
+            throw new IllegalStateException();
+        }
         path.toFile().getParentFile().mkdirs();
+        LOG.info("I'm getting access to save part #{} of {}", partNumber, name);
         try (RandomAccessFile randomAccessFile = new RandomAccessFile(path.toFile(), "rw")) {
-            long start = (long) partNumber * BLOCK_SIZE,
-                    end = Math.min(size, (long) (partNumber + 1) * BLOCK_SIZE);
-            int len = (int) (end - start);
-            if (partContent.length != len) {
-                throw new IllegalStateException();
+            if (randomAccessFile.length() != size) {
+                randomAccessFile.setLength(size);
             }
             randomAccessFile.seek(start);
+            LOG.info("I'm going to save part #{} of {}", partNumber, name);
             randomAccessFile.write(partContent, 0, len);
+            LOG.info("I just saved part #{} of {}", partNumber, name);
         }
     }
 
