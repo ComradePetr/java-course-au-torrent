@@ -76,6 +76,7 @@ public final class TorrentClientMain {
                                             LOG.info("{} got 'get {}'", port, partNumber);
                                             dataOutputStream.write(clientFileInfo.getPartContent(partNumber), 0,
                                                     clientFileInfo.partSize(partNumber));
+                                            LOG.info("{} has written part #{} into stream", port, partNumber);
                                             break;
                                         default:
                                             throw new UnsupportedOperationException();
@@ -90,7 +91,6 @@ public final class TorrentClientMain {
                                         e.printStackTrace();
                                     }
                                 }
-                                LOG.info("{} finished job", port);
                             });
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -122,7 +122,7 @@ public final class TorrentClientMain {
                             e.printStackTrace();
                         }
                     } while (!success);
-                    LOG.info("{} send server update!", port);
+                    LOG.info("{} send server update", port);
                 }
             }, 0, ClientInfo.LIVE_TIME / 2);
 
@@ -217,7 +217,8 @@ public final class TorrentClientMain {
 
     private static void downloadFiles(String host, int serverPort, ExecutorService taskExecutor) {
         for (Map.Entry<Integer, ClientFileInfo> entry : getFiles().entrySet()) {
-            LOG.info("{}: file {} (id={})", port, entry.getValue().getName(), entry.getKey());
+            final String filename = entry.getValue().getName();
+            LOG.info("{}: file {} (id={})", port, filename, entry.getKey());
             final int id = entry.getKey();
             ClientFileInfo value = entry.getValue();
             if (value.getParts().size() < value.getCount()) {
@@ -231,7 +232,7 @@ public final class TorrentClientMain {
                         dataOutputStream.writeInt(id);
                         dataOutputStream.flush();
                         int count = dataInputStream.readInt();
-                        LOG.info("{}: file {} (id={}) --- got {} seeds",
+                        LOG.info("{}: file {} (id={}) - got {} seeds",
                                 port, entry.getValue().getName(), entry.getKey(), count);
                         for (int i = 0; i < count; i++) {
                             byte[] ip = new byte[IpPort.IP_BYTES];
@@ -260,7 +261,8 @@ public final class TorrentClientMain {
                                 int partNumber = dataInputStream.readInt();
                                 if (!alreadyHave.contains(partNumber)) {
                                     tasks.add(new Task(ipPort, partNumber));
-                                    LOG.info("I want to download from {} part #{}", ipPort.getPort(), i);
+                                    LOG.info("I want to download from {} part #{} of {}", ipPort.getPort(), i,
+                                            filename);
                                 }
                             }
                         } catch (IOException e) {
@@ -285,10 +287,11 @@ public final class TorrentClientMain {
                                 int partSize = value.partSize(task.partNumber);
                                 byte[] part = new byte[partSize];
                                 dataInputStream.readFully(part, 0, partSize);
+                                LOG.info("{}: part #{} of {} has been read", port, task.partNumber, filename);
                                 value.writePartContent(task.partNumber, part);
+                                LOG.info("{}: part #{} of {} has been saved", port, task.partNumber, filename);
                                 value.getParts().add(task.partNumber);
                                 saveState();
-                                LOG.info("{}: part #{} is read!", port, task.partNumber);
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
